@@ -39,21 +39,42 @@ def my_data_generator(df, batch_size=1000):
                 # Initialize the output image as the input image
                 output_img = img
 
-                # Case 1: If the original image is smaller than the target dimensions, pad it
-                if original_height < target_height or original_width < target_width:
-                    pad_h = target_height - original_height
-                    pad_w = target_width - original_width
-                    output_img = cv2.copyMakeBorder(img, 0, pad_h, 0, pad_w, cv2.BORDER_CONSTANT, value=0)
+                # Case 1: If the original image matches the target dimensions, leave it as it is
+                if original_height == target_height and original_width == target_width:
+                    return img
 
-                # Case 2: If the original image is larger than the target dimensions, crop it
-                elif original_height > target_height or original_width > target_width:
-                    crop_h = (original_height - target_height) // 2
-                    crop_w = (original_width - target_width) // 2
-                    output_img = img[crop_h:crop_h + target_height, crop_w:crop_w + target_width]
-
-                # Case 3: If the original image matches the target dimensions, leave it as it is
                 else:
-                    output_img = img
+                    # Case 2: If the original image is smaller than the target dimensions, pad it
+                    if original_height < target_height and original_width < target_width:
+                        pad_h = target_height - original_height
+                        pad_w = target_width - original_width
+                        output_img = cv2.copyMakeBorder(img, 0, pad_h, 0, pad_w, cv2.BORDER_CONSTANT, value=0)
+
+                    # Case 3: If the original image is larger than the target dimensions, crop it
+                    elif original_height > target_height and original_width > target_width:
+                        crop_h = (original_height - target_height) // 2
+                        crop_w = (original_width - target_width) // 2
+                        output_img = img[crop_h:crop_h + target_height, crop_w:crop_w + target_width]
+
+                    # Case 4: If original image HEIGHT is larger than target AND WIDTH is smaller than target
+                    elif original_height > target_height and original_width < target_width:
+                        # Crop the height
+                        crop_h = (original_height - target_height) // 2
+                        cropped_img = img[crop_h:crop_h + target_height, :]
+
+                        # Pad the width
+                        pad_w = target_width - original_width
+                        output_img = cv2.copyMakeBorder(cropped_img, 0, 0, 0, pad_w, cv2.BORDER_CONSTANT, value=0)
+
+                    # Case 5: If original image HEIGHT is smaller than target AND WIDTH is larger than target
+                    elif original_height < target_height and original_width > target_width:
+                        # Pad the height
+                        pad_h = target_height - original_height
+                        padded_img = cv2.copyMakeBorder(img, 0, pad_h, 0, 0, cv2.BORDER_CONSTANT, value=0)
+
+                        # Crop the width
+                        crop_w = (original_width - target_width) // 2
+                        output_img = padded_img[:, crop_w:crop_w + target_width]
 
                 print("\n IMAGE:", img_id, original_height, original_width, output_img.shape)
                 return output_img
