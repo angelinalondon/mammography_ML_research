@@ -5,7 +5,7 @@ import numpy as np
 import pydicom
 import cv2
 
-def my_data_generator(df, batch_size=1000):
+def my_data_generator(df, sample_weights_birads, sample_weights_density, batch_size=150):
     # img_gen = ImageDataGenerator(rescale=1. / 255.)  # assuming images are in 0-255 range
 
     while True:
@@ -17,8 +17,13 @@ def my_data_generator(df, batch_size=1000):
         batch_images = []
         batch_labels_birads = []
         batch_labels_density = []
+        batch_features = []
+        batch_weights_birads = []
+        batch_weights_density = []
 
-        for i, row in batch_df.iterrows():
+        for i, original_idx in enumerate(batch_indices):
+            row = batch_df.iloc[i]
+
             img_id = row['image_id']
             study_id = row['study_id']
             # height = row['height']
@@ -41,7 +46,7 @@ def my_data_generator(df, batch_size=1000):
 
                 # Case 1: If the original image matches the target dimensions, leave it as it is
                 if original_height == target_height and original_width == target_width:
-                    return img
+                    output_img = img
 
                 else:
                     # Case 2: If the original image is smaller than the target dimensions, pad it
@@ -85,9 +90,29 @@ def my_data_generator(df, batch_size=1000):
             batch_images.append(img)
             batch_labels_birads.append(row['breast_birads'])
             batch_labels_density.append(row['breast_density'])
+            batch_features.append([row['laterality'], row['view_position']])
+
+
+
+            batch_weights_birads.append(sample_weights_birads[original_idx])
+            batch_weights_density.append(sample_weights_density[original_idx])
+
+
+
+
 
         batch_images = np.array(batch_images)
         batch_labels_birads = np.array(batch_labels_birads)
         batch_labels_density = np.array(batch_labels_density)
+        batch_features = np.array(batch_features)
+        batch_weights_birads = np.array(batch_weights_birads)
+        batch_weights_density = np.array(batch_weights_density)
 
-        yield batch_images, {'birads_output': batch_labels_birads, 'density_output': batch_labels_density}
+
+
+        yield {'image_input': batch_images, 'feature_input': batch_features}, \
+            {'birads_output': batch_labels_birads, 'density_output': batch_labels_density}, \
+            {'birads_output': batch_weights_birads, 'density_output': batch_weights_density}
+
+
+
