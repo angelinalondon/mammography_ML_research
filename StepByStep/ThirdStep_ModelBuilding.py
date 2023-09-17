@@ -31,8 +31,10 @@ feature_input = Input(shape=(2,), name='feature_input')  # Two features
 # Concatenate flattened image data and feature data
 merged = Concatenate()([flatten, feature_input])
 
-birads_output = Dense(5, activation='softmax', name='birads_output')(merged)
-density_output = Dense(4, activation='softmax', name='density_output')(merged)
+new_layer = Dense(12, activation='relu')(merged)  # or any number of units you want
+
+birads_output = Dense(5, activation='softmax', name='birads_output')(new_layer)
+density_output = Dense(4, activation='softmax', name='density_output')(new_layer)
 
 # Complete the model
 model = Model(inputs=[image_input, feature_input], outputs=[birads_output, density_output])
@@ -115,6 +117,9 @@ sample_weights_train = {'birads_output': sample_weights_birads_train,
 sample_weights_val = {'birads_output': sample_weights_birads_val,
                       'density_output': sample_weights_density_val}
 
+print('\n sample_weights_val', sample_weights_val,'\n sample_weights_train', sample_weights_train )
+print("Shape of model output:", model.output_shape)
+model.summary()
 
 history = model.fit(
     my_data_generator(
@@ -136,7 +141,6 @@ history = model.fit(
 )
 
 
-                    # class_weight={'birads_output': birads_weight_dict, 'density_output': density_weight_dict})
 
 # Get AUC values
 train_auc_birads = history.history['birads_output_auc_birads']
@@ -164,3 +168,6 @@ plt.xlabel('Epoch')
 plt.ylabel('AUC')
 plt.legend()
 plt.show()
+
+model.save_weights('/content/drive/MyDrive/Colab/model_saved')
+print('Model Saved!')

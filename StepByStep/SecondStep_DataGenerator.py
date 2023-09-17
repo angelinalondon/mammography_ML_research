@@ -97,18 +97,22 @@ def my_data_generator(df, sample_weights_birads, sample_weights_density, batch_s
             batch_weights_birads.append(sample_weights_birads[original_idx])
             batch_weights_density.append(sample_weights_density[original_idx])
 
-
-
+        # mapping_dict_density = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
+        # training_data['breast_density'] = training_data['breast_density'].map(mapping_dict_density)
+        # density_classes = [0, 1, 2, 3]
 
 
         batch_images = np.array(batch_images)
-        batch_labels_birads = np.array(batch_labels_birads)
-        batch_labels_density = np.array(batch_labels_density)
+        batch_labels_birads = np.squeeze(np.array(batch_labels_birads))
+        batch_labels_density = np.squeeze(np.array(batch_labels_density))
+
         batch_features = np.array(batch_features)
         batch_weights_birads = np.array(batch_weights_birads)
         batch_weights_density = np.array(batch_weights_density)
-
-
+        print('\n birads_output', batch_labels_birads, '\n density_output', batch_labels_density)
+        print("Shape of training labels:", batch_labels_birads.shape,
+              '\n batch_labels_birads', type(batch_labels_birads), 'batch_weights_density', type(batch_weights_density),
+              '\n batch_labels_birads.shape', type(batch_labels_birads.shape), 'batch_weights_density.shape', type(batch_weights_density.shape))
 
         yield {'image_input': batch_images, 'feature_input': batch_features}, \
             {'birads_output': batch_labels_birads, 'density_output': batch_labels_density}, \
