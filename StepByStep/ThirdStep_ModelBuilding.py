@@ -25,16 +25,17 @@ x = MaxPooling2D((2, 2))(x)
 # Flatten and dense layers
 flatten = Flatten()(x)
 
+
 # Define tabular data input layer for two features: 'laterality' and 'view_position'
 feature_input = Input(shape=(2,), name='feature_input')  # Two features
 
 # Concatenate flattened image data and feature data
 merged = Concatenate()([flatten, feature_input])
+#
+# new_layer = Dense(12, activation='relu')(merged)  # or any number of units you want
 
-new_layer = Dense(12, activation='relu')(merged)  # or any number of units you want
-
-birads_output = Dense(5, activation='softmax', name='birads_output')(new_layer)
-density_output = Dense(4, activation='softmax', name='density_output')(new_layer)
+birads_output = Dense(5, activation='softmax', name='birads_output')(merged)
+density_output = Dense(4, activation='softmax', name='density_output')(merged)
 
 # Complete the model
 model = Model(inputs=[image_input, feature_input], outputs=[birads_output, density_output])
@@ -46,54 +47,19 @@ model.compile(optimizer='adam',
                        'density_output': ['accuracy', tf.keras.metrics.AUC(name='auc_density')]
                        })
 
-
-# def get_class_weights(y, smooth_factor=0.1):
-#     """
-#     Returns the weights for each class based on the frequencies of the samples.
-#     """
-#     counter = Counter(y)
-#     total = len(y)
-#     class_weights = {cls: freq for cls, freq in counter.items()}
-#     max_val = float(max(class_weights.values()))
-#     class_weights = {cls: max_val / (total * val) for cls, val in class_weights.items()}
-#     return class_weights
-#
-
 checkpoint = ModelCheckpoint(filepath='/content/drive/MyDrive/Colab/Callbacks/First_Attempt_Batches',
                              save_weights_only=True,
                              save_freq=150)  # Save after every 150 images (i.e., one batch)
 
-#
-# mapping_dict_birads = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4}
-# training_data['breast_birads'] = training_data['breast_birads'].map(mapping_dict_birads)
-# birads_classes = [0, 1, 2, 3, 4]
-# birads_weights = compute_class_weight(class_weight='balanced', classes=np.unique(birads_classes),
-#                                       y=training_data['breast_birads'])
-#
-# birads_weight_dict = {cls: weight for cls, weight in zip(birads_classes, birads_weights)}
-#
-#
-#
-# #
-# mapping_dict_density = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
-# training_data['breast_density'] = training_data['breast_density'].map(mapping_dict_density)
-# density_classes = [0, 1, 2, 3]
-# density_weights = compute_class_weight(class_weight='balanced', classes=density_classes,
-#                                        y=training_data['breast_density'])
-# density_weight_dict = {cls: weight for cls, weight in zip(density_classes, density_weights)}
-#
-
-# birads_weight_dict_class_weight = {k: v for k, v in birads_weight_dict.items() if k > 1}
-
-# print("\n ====================\n birads_weight_dict \n", class_weight)
-
-
 
 def get_sample_weights(y):
-    counter = Counter(y)
+    # Flatten the array back to a 1D array before using Counter
+    y_flat = y.flatten()
+    counter = Counter(y_flat)
     max_val = float(max(counter.values()))
-    sample_weights = np.array([max_val / counter[i] for i in y])
+    sample_weights = np.array([max_val / counter[i] for i in y_flat])
     return sample_weights
+
 
 y_train_birads = training_data['breast_birads'].values
 y_train_density = training_data['breast_density'].values
@@ -101,14 +67,21 @@ y_train_density = training_data['breast_density'].values
 y_val_birads = validation_data['breast_birads'].values
 y_val_density = validation_data['breast_density'].values
 
+# Reshape the labels
+y_train_birads = y_train_birads.reshape(-1, 1)  # Reshape to shape (n_samples_train, 1)
+y_train_density = y_train_density.reshape(-1, 1)  # Reshape to shape (n_samples_train, 1)
+
+y_val_birads = y_val_birads.reshape(-1, 1)  # Reshape to shape (n_samples_val, 1)
+y_val_density = y_val_density.reshape(-1, 1)  # Reshape to shape (n_samples_val, 1)
 
 
-# Assuming y_train_birads and y_train_density contain your actual training labels
-sample_weights_birads_train = get_sample_weights(y_train_birads)
-sample_weights_density_train = get_sample_weights(y_train_density)
 
-sample_weights_birads_val = get_sample_weights(y_val_birads)
-sample_weights_density_val = get_sample_weights(y_val_density)
+sample_weights_birads_train = get_sample_weights(y_train_birads.flatten())
+sample_weights_density_train = get_sample_weights(y_train_density.flatten())
+
+sample_weights_birads_val = get_sample_weights(y_val_birads.flatten())
+sample_weights_density_val = get_sample_weights(y_val_density.flatten())
+
 
 # Map the class weights to the individual samples in the dataset
 sample_weights_train = {'birads_output': sample_weights_birads_train,
@@ -118,25 +91,36 @@ sample_weights_val = {'birads_output': sample_weights_birads_val,
                       'density_output': sample_weights_density_val}
 
 print('\n sample_weights_val', sample_weights_val,'\n sample_weights_train', sample_weights_train )
-print("Shape of model output:", model.output_shape)
+print('\n _____________ \n',
+      "\n Shape of model output:", model.output_shape, " Data type:", str(model.output.dtype) if hasattr(model.output, 'dtype') else "N/A",
+      "\n Shape of image_input:", image_input.shape, " Data type:", str(image_input.dtype) if hasattr(image_input, 'dtype') else "N/A",
+      "\n Shape of feature_input:", feature_input.shape, " Data type:", str(feature_input.dtype) if hasattr(feature_input, 'dtype') else "N/A",
+      "\n Shape of birads label:", y_train_birads.shape, " Data type:", str(y_train_birads.dtype) if hasattr(y_train_birads, 'dtype') else "N/A",
+      "\n Shape of birads weight:", sample_weights_birads_train.shape, " Data type:", str(sample_weights_birads_train.dtype) if hasattr(sample_weights_birads_train, 'dtype') else "N/A",
+      "\n Shape of density label:", y_train_density.shape, " Data type:", str(y_train_density.dtype) if hasattr(y_train_density, 'dtype') else "N/A",
+      "\n Shape of density weight:", sample_weights_density_train.shape, " Data type:", str(sample_weights_density_train.dtype) if hasattr(sample_weights_density_train, 'dtype') else "N/A",
+      '\n _____________ \n')
+
 model.summary()
+
 
 history = model.fit(
     my_data_generator(
         training_data,
         batch_size=150,
+        # birads_output =
         sample_weights_birads=sample_weights_birads_train,
         sample_weights_density=sample_weights_density_train,
     ),
-    steps_per_epoch=len(training_data) // 150,
-    epochs=10,
+    # steps_per_epoch=len(training_data) // 150,
+    epochs=2,
     validation_data=my_data_generator(
         validation_data,
         batch_size=32,
         sample_weights_birads=sample_weights_birads_val,
         sample_weights_density=sample_weights_density_val,
     ),
-    validation_steps=len(validation_data) // 32,
+    # validation_steps=len(validation_data) // 32,
     callbacks=[checkpoint]
 )
 

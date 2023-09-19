@@ -8,6 +8,8 @@ import cv2
 def my_data_generator(df, sample_weights_birads, sample_weights_density, batch_size=150):
     # img_gen = ImageDataGenerator(rescale=1. / 255.)  # assuming images are in 0-255 range
 
+    mapping_dict_density = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
+
     while True:
         # Select files (IDs) and labels for the batch
         batch_indices = np.random.choice(a=len(df), size=batch_size)
@@ -32,8 +34,6 @@ def my_data_generator(df, sample_weights_birads, sample_weights_density, batch_s
             img_path = f"/content/drive/MyDrive/Colab/vindr-mammo-a-large-scale-benchmark-dataset-for-computer-aided-detection-and-diagnosis-in-full-field-digital-mammography-1.0.0/images/{study_id}/{img_id}.dicom"
 
             img = pydicom.dcmread(img_path).pixel_array
-
-
 
 
             # Resize image based on the height and width from CSV if needed
@@ -88,8 +88,9 @@ def my_data_generator(df, sample_weights_birads, sample_weights_density, batch_s
 
             # Append to batch
             batch_images.append(img)
-            batch_labels_birads.append(row['breast_birads'])
-            batch_labels_density.append(row['breast_density'])
+            batch_labels_birads.append(row['breast_birads'] - 1)
+            batch_labels_density.append(mapping_dict_density.get(row['breast_density'], -1))  # Use mapping here
+            # batch_labels_density.append(row['breast_density'])
             batch_features.append([row['laterality'], row['view_position']])
 
 
@@ -97,26 +98,39 @@ def my_data_generator(df, sample_weights_birads, sample_weights_density, batch_s
             batch_weights_birads.append(sample_weights_birads[original_idx])
             batch_weights_density.append(sample_weights_density[original_idx])
 
-        # mapping_dict_density = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
-        # training_data['breast_density'] = training_data['breast_density'].map(mapping_dict_density)
-        # density_classes = [0, 1, 2, 3]
-
 
         batch_images = np.array(batch_images)
-        batch_labels_birads = np.squeeze(np.array(batch_labels_birads))
-        batch_labels_density = np.squeeze(np.array(batch_labels_density))
-
+        batch_labels_birads = np.array(batch_labels_birads)
+        batch_labels_density = np.array(batch_labels_density)
         batch_features = np.array(batch_features)
         batch_weights_birads = np.array(batch_weights_birads)
         batch_weights_density = np.array(batch_weights_density)
-        print('\n birads_output', batch_labels_birads, '\n density_output', batch_labels_density)
-        print("Shape of training labels:", batch_labels_birads.shape,
-              '\n batch_labels_birads', type(batch_labels_birads), 'batch_weights_density', type(batch_weights_density),
-              '\n batch_labels_birads.shape', type(batch_labels_birads.shape), 'batch_weights_density.shape', type(batch_weights_density.shape))
+
+
+        batch_labels_birads = batch_labels_birads.reshape(-1, 1)  # Reshape to shape (batch_size, 1)
+        batch_labels_density = batch_labels_density.reshape(-1, 1)  # Reshape to shape (batch_size, 1)
+
+        print('\n birads_output', batch_labels_birads, ' Data type:',
+              str(batch_labels_birads.dtype) if hasattr(batch_labels_birads, 'dtype') else "N/A",
+              '\n density_output', batch_labels_density, ' Data type:',
+              str(batch_labels_density.dtype) if hasattr(batch_labels_density, 'dtype') else "N/A")
+
+        print("\n Shape of training image_input:", batch_images.shape, " Data type:",
+              str(batch_images.dtype) if hasattr(batch_images, 'dtype') else "N/A",
+              "\n Shape of training features:", batch_features.shape, " Data type:",
+              str(batch_features.dtype) if hasattr(batch_features, 'dtype') else "N/A",
+              "\n Shape of training birads labels:", batch_labels_birads.shape, " Data type:",
+              str(batch_labels_birads.dtype) if hasattr(batch_labels_birads, 'dtype') else "N/A",
+              "\n Shape of training birads weights:", batch_weights_birads.shape, " Data type:",
+              str(batch_weights_birads.dtype) if hasattr(batch_weights_birads, 'dtype') else "N/A",
+              "\n Shape of training density labels:", batch_labels_density.shape, " Data type:",
+              str(batch_labels_density.dtype) if hasattr(batch_labels_density, 'dtype') else "N/A",
+              "\n Shape of training density weights:", batch_weights_density.shape, " Data type:",
+              str(batch_weights_density.dtype) if hasattr(batch_weights_density, 'dtype') else "N/A",
+              "\n batch_labels_birads", type(batch_labels_birads), 'batch_weights_density', type(batch_weights_density),
+              "\n batch_labels_birads.shape", type(batch_labels_birads.shape), 'batch_weights_density.shape',
+              type(batch_weights_density.shape))
 
         yield {'image_input': batch_images, 'feature_input': batch_features}, \
             {'birads_output': batch_labels_birads, 'density_output': batch_labels_density}, \
             {'birads_output': batch_weights_birads, 'density_output': batch_weights_density}
-
-
-
