@@ -91,7 +91,14 @@ def my_data_generator(df, sample_weights_birads, sample_weights_density, batch_s
             batch_labels_birads.append(row['breast_birads'] - 1)
             batch_labels_density.append(mapping_dict_density.get(row['breast_density'], -1))  # Use mapping here
             # batch_labels_density.append(row['breast_density'])
-            batch_features.append([row['laterality'], row['view_position']])
+
+            mapping_dict_laterality = {'left': 0, 'right': 1}
+            mapping_dict_view_position = {'CC': 0, 'MLO': 1}
+
+            mapped_laterality = mapping_dict_laterality.get(row['laterality'], -1)  # -1 for missing or unknown
+            mapped_view_position = mapping_dict_view_position.get(row['view_position'], -1)  # -1 for missing or unknown
+
+            batch_features.append([mapped_laterality, mapped_view_position])
 
 
 
