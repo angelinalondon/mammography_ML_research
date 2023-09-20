@@ -9,6 +9,8 @@ def my_data_generator(df, sample_weights_birads, sample_weights_density, batch_s
     # img_gen = ImageDataGenerator(rescale=1. / 255.)  # assuming images are in 0-255 range
 
     mapping_dict_density = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
+    mapping_dict_laterality = {'left': 0, 'right': 1}
+    mapping_dict_view_position = {'CC': 0, 'MLO': 1}
 
     while True:
         # Select files (IDs) and labels for the batch
@@ -16,23 +18,34 @@ def my_data_generator(df, sample_weights_birads, sample_weights_density, batch_s
         batch_df = df.iloc[batch_indices]
 
         # Initialize batch arrays
-        batch_images = []
-        batch_labels_birads = []
-        batch_labels_density = []
-        batch_features = []
-        batch_weights_birads = []
-        batch_weights_density = []
+        # batch_images = []
+        # batch_labels_birads = []
+        # batch_labels_density = []
+        # batch_features = []
+        # batch_weights_birads = []
+        # batch_weights_density = []
+        # Assuming height and width are the dimensions of your image, and num_features is the number of feature columns
+        batch_size = 150  # The number of samples per batch
+        height = 3518  # The height of your images
+        width = 2800  # The width of your images
+        num_features = 2  # Number of feature columns, here you have 'laterality' and 'view_position'
+
+        # Initialize your arrays
+        batch_images = np.zeros((batch_size, height, width), dtype=np.float32)  # Adjust dtype as needed
+        batch_labels_birads = np.zeros((batch_size, 1), dtype=np.int)  # Assuming birads labels are integers
+        batch_labels_density = np.zeros((batch_size, 1), dtype=np.int)  # Assuming density labels are integers
+        batch_features = np.zeros((batch_size, num_features), dtype=np.int)  # Assuming features are integers
+        batch_weights_birads = np.zeros((batch_size,), dtype=np.float32)  # Assuming weights are float numbers
+        batch_weights_density = np.zeros((batch_size,), dtype=np.float32)  # Assuming weights are float numbers
+
+        # ... and so on
 
         for i, original_idx in enumerate(batch_indices):
             row = batch_df.iloc[i]
 
             img_id = row['image_id']
             study_id = row['study_id']
-            # height = row['height']
-            # width = row['width']
-
             img_path = f"/content/drive/MyDrive/Colab/vindr-mammo-a-large-scale-benchmark-dataset-for-computer-aided-detection-and-diagnosis-in-full-field-digital-mammography-1.0.0/images/{study_id}/{img_id}.dicom"
-
             img = pydicom.dcmread(img_path).pixel_array
 
 
@@ -86,36 +99,41 @@ def my_data_generator(df, sample_weights_birads, sample_weights_density, batch_s
 
             img = conditional_resize(img)
 
-            # Append to batch
-            batch_images.append(img)
-            batch_labels_birads.append(row['breast_birads'] - 1)
-            batch_labels_density.append(mapping_dict_density.get(row['breast_density'], -1))  # Use mapping here
-            # batch_labels_density.append(row['breast_density'])
+        #     # Append to batch
+        #     batch_images.append(img)
+        #     batch_labels_birads.append(row['breast_birads'] - 1)
+        #     batch_labels_density.append(mapping_dict_density.get(row['breast_density'], -1))  # Use mapping here
+        #     # batch_labels_density.append(row['breast_density'])
+        #
+        #     mapped_laterality = mapping_dict_laterality.get(row['laterality'], -1)  # -1 for missing or unknown
+        #     mapped_view_position = mapping_dict_view_position.get(row['view_position'], -1)  # -1 for missing or unknown
+        #
+        #     batch_features.append([mapped_laterality, mapped_view_position])
+        #
+        #
+        #
+        #     batch_weights_birads.append(sample_weights_birads[original_idx])
+        #     batch_weights_density.append(sample_weights_density[original_idx])
+        #
+        #
+        # batch_images = np.array(batch_images)
+        # batch_labels_birads = np.array(batch_labels_birads)
+        # batch_labels_density = np.array(batch_labels_density)
+        # batch_features = np.array(batch_features)
+        # batch_weights_birads = np.array(batch_weights_birads)
+        # batch_weights_density = np.array(batch_weights_density)
+        #
+        # batch_labels_birads = batch_labels_birads.reshape(-1, 1)  # Reshape to shape (batch_size, 1)
+        # batch_labels_density = batch_labels_density.reshape(-1, 1)  # Reshape to shape (batch_size, 1)
 
-            mapping_dict_laterality = {'left': 0, 'right': 1}
-            mapping_dict_view_position = {'CC': 0, 'MLO': 1}
-
-            mapped_laterality = mapping_dict_laterality.get(row['laterality'], -1)  # -1 for missing or unknown
-            mapped_view_position = mapping_dict_view_position.get(row['view_position'], -1)  # -1 for missing or unknown
-
-            batch_features.append([mapped_laterality, mapped_view_position])
-
-
-
-            batch_weights_birads.append(sample_weights_birads[original_idx])
-            batch_weights_density.append(sample_weights_density[original_idx])
-
-
-        batch_images = np.array(batch_images)
-        batch_labels_birads = np.array(batch_labels_birads)
-        batch_labels_density = np.array(batch_labels_density)
-        batch_features = np.array(batch_features)
-        batch_weights_birads = np.array(batch_weights_birads)
-        batch_weights_density = np.array(batch_weights_density)
-
-
-        batch_labels_birads = batch_labels_birads.reshape(-1, 1)  # Reshape to shape (batch_size, 1)
-        batch_labels_density = batch_labels_density.reshape(-1, 1)  # Reshape to shape (batch_size, 1)
+        # Assign to pre-allocated NumPy arrays
+        batch_images[i] = img
+        batch_labels_birads[i, 0] = row['breast_birads'] - 1
+        batch_labels_density[i, 0] = mapping_dict_density.get(row['breast_density'], -1)
+        batch_features[i] = [mapping_dict_laterality.get(row['laterality'], -1),
+                             mapping_dict_view_position.get(row['view_position'], -1)]
+        batch_weights_birads[i] = sample_weights_birads[original_idx]
+        batch_weights_density[i] = sample_weights_density[original_idx]
 
         print('\n birads_output', batch_labels_birads, ' Data type:',
               str(batch_labels_birads.dtype) if hasattr(batch_labels_birads, 'dtype') else "N/A",
