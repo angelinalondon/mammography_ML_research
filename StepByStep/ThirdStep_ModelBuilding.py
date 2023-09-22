@@ -113,29 +113,29 @@ print('\n _____________ \n',
 model.summary()
 
 
-
-
 history = model.fit(
     my_data_generator(
         training_data,
-        batch_size=batch_size_training,
-        sample_weights_birads=sample_weights_birads_train,
-        sample_weights_density=sample_weights_density_train,
-        preloaded_images=preloaded_images_train,
-        mode='training'
+        image_input,
+        feature_input,
+        birads_output,
+        density_output,
+        batch_size_training
     ),
-    epochs=2,
-    verbose=2,
-    validation_data=my_data_generator(
+    epochs = 2,
+    verbose = 2,
+    validation_data = my_data_generator(
         validation_data,
-        batch_size=batch_size_validation,
-        sample_weights_birads=sample_weights_birads_val,
-        sample_weights_density=sample_weights_density_val,
-        preloaded_images=preloaded_images_val,
-        mode='validation'
+        image_input,
+        feature_input,
+        birads_output,
+        density_output,
+        batch_size_training
     ),
-    callbacks=[checkpoint]
+        callbacks=[checkpoint]
 )
+
+
 
 print('Model fit is completed')
 

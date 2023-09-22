@@ -1,5 +1,9 @@
-!pip install opencv-python
-!pip install pydicom
+!pip
+install
+opencv - python
+!pip
+install
+pydicom
 
 import numpy as np
 import pydicom
@@ -10,6 +14,7 @@ import random
 height = 3518  # The height of your images
 width = 2800  # The width of your images
 num_features = 2  # Number of feature columns, here you have 'laterality' and 'view_position'
+
 
 def conditional_resize(img, img_id, target_height=height, target_width=width):
     # Get the original image dimensions
@@ -58,6 +63,7 @@ def conditional_resize(img, img_id, target_height=height, target_width=width):
     print("resized IMAGE:", img_id, original_height, original_width, output_img.shape)
     return output_img
 
+
 def preload_images(df, num_preloaded):
     print("preload images started")
     preloaded_images = {}
@@ -77,10 +83,9 @@ def preload_images(df, num_preloaded):
     return preloaded_images
 
 
-def my_data_generator(df, sample_weights_birads, sample_weights_density, preloaded_images, batch_size, mode):
+def my_data_generator(df, batch_size, preloaded_images, feature_input, sample_weights_birads, sample_weights_density):
     print('\n =================\n',
           'entered my_data_generator'.upper(),
-          'mode is:', mode,
           '\n====================')
 
     mapping_dict_density = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
@@ -99,7 +104,6 @@ def my_data_generator(df, sample_weights_birads, sample_weights_density, preload
 
         # Remove used indices from unused_indices
         unused_indices = np.setdiff1d(unused_indices, batch_indices)
-
 
         # Initialize your arrays
         batch_images = np.zeros((batch_size, height, width), dtype=np.float32)  # Adjust dtype as needed
@@ -122,8 +126,6 @@ def my_data_generator(df, sample_weights_birads, sample_weights_density, preload
             #     img = pydicom.dcmread(img_path).pixel_array
             #     img = conditional_resize(img, img_id)
 
-
-
             # img = conditional_resize(img, img_id)
             batch_images[i] = img
             batch_labels_birads[i, 0] = row['breast_birads'] - 1
@@ -132,9 +134,10 @@ def my_data_generator(df, sample_weights_birads, sample_weights_density, preload
                                  mapping_dict_view_position.get(row['view_position'], -1)]
             batch_weights_birads[i] = sample_weights_birads[original_idx]
             batch_weights_density[i] = sample_weights_density[original_idx]
+        #     WAITS changed their type from float32 to float64?
 
-
-        print("\n Shape of training image_input:", batch_images.shape, " Data type:",
+        print('AFTER RESIZING:',
+              "\n Shape of training image_input:", batch_images.shape, " Data type:",
               str(batch_images.dtype) if hasattr(batch_images, 'dtype') else "N/A",
               "\n Shape of training features:", batch_features.shape, " Data type:",
               str(batch_features.dtype) if hasattr(batch_features, 'dtype') else "N/A",
@@ -150,28 +153,15 @@ def my_data_generator(df, sample_weights_birads, sample_weights_density, preload
               "\n batch_labels_birads.shape", type(batch_labels_birads.shape), 'batch_weights_density.shape',
               type(batch_weights_density.shape))
 
-
-
-        if mode == 'training':
-          print("\n if training")
-          return {
-              'image_input': batch_images,
-              'feature_input': batch_features
-          }, {
-              'birads_output': batch_labels_birads,
-              'density_output': batch_labels_density
-          }, {
-              'birads_output': batch_weights_birads,
-              'density_output': batch_weights_density
-          }
-        else:
-          print("\n else validation")
-          return {
+        return {
             'image_input': batch_images,
             'feature_input': batch_features
         }, {
             'birads_output': batch_labels_birads,
             'density_output': batch_labels_density
+        }, {
+            'birads_output': batch_weights_birads,
+            'density_output': batch_weights_density
         }
 
         del batch_images, batch_labels_birads, batch_labels_density, batch_features, batch_weights_birads, batch_weights_density
