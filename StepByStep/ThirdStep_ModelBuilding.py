@@ -8,6 +8,10 @@ from sklearn.utils import class_weight
 import collections
 from collections import Counter
 
+batch_size_training = 4
+batch_size_validation = 1
+preloaded_images_train = preload_images(training_data, num_preloaded=4)
+preloaded_images_val = preload_images(validation_data, num_preloaded=1)
 
 
 
@@ -45,11 +49,16 @@ model.compile(optimizer='adam',
                     'density_output': 'sparse_categorical_crossentropy'},
               metrics={'birads_output': ['accuracy', tf.keras.metrics.AUC(name='auc_birads')],
                        'density_output': ['accuracy', tf.keras.metrics.AUC(name='auc_density')]
-                       })
+                       },
+              sample_weight_mode={
+                    'birads_output': None,  # https://faroit.com/keras-docs/1.0.0/models/model/
+                    'density_output': None
+                    }
+              )
 
 checkpoint = ModelCheckpoint(filepath='/content/drive/MyDrive/Colab/Callbacks/First_Attempt_Batches',
                              save_weights_only=True,
-                             save_freq=150)  # Save after every 150 images (i.e., one batch)
+                             save_freq=batch_size_training)  # Save after every 150 images (i.e., one batch)
 
 
 def get_sample_weights(y):
@@ -104,27 +113,31 @@ print('\n _____________ \n',
 model.summary()
 
 
+
+
 history = model.fit(
     my_data_generator(
         training_data,
-        batch_size=150,
-        # birads_output =
+        batch_size=batch_size_training,
         sample_weights_birads=sample_weights_birads_train,
         sample_weights_density=sample_weights_density_train,
+        preloaded_images=preloaded_images_train,
+        mode='training'
     ),
-    # steps_per_epoch=len(training_data) // 150,
     epochs=2,
+    verbose=2,
     validation_data=my_data_generator(
         validation_data,
-        batch_size=32,
+        batch_size=batch_size_validation,
         sample_weights_birads=sample_weights_birads_val,
         sample_weights_density=sample_weights_density_val,
+        preloaded_images=preloaded_images_val,
+        mode='validation'
     ),
-    # validation_steps=len(validation_data) // 32,
     callbacks=[checkpoint]
 )
 
-
+print('Model fit is completed')
 
 # Get AUC values
 train_auc_birads = history.history['birads_output_auc_birads']
@@ -133,6 +146,7 @@ val_auc_birads = history.history['val_birads_output_auc_birads']
 train_auc_density = history.history['density_output_auc_density']
 val_auc_density = history.history['val_density_output_auc_density']
 
+print('I am trying to print AUC')
 # Plotting the training and validation AUC for birads_output
 plt.figure()
 plt.plot(train_auc_birads, label='Training AUC for birads_output')
