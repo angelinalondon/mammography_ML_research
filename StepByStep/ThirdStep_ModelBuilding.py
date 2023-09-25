@@ -68,6 +68,7 @@ def get_sample_weights(y):
     max_val = float(max(counter.values()))
     sample_weights = np.array([max_val / counter[i] for i in y_flat])
     return sample_weights
+# returns a NumPy array (numpy.ndarray) containing sample weights.
 
 
 y_train_birads = training_data['breast_birads'].values
@@ -116,10 +117,10 @@ model.summary()
 history = model.fit(
     my_data_generator(
         training_data,
-        image_input,
-        feature_input,
-        birads_output,
-        density_output,
+        # image_input,
+        # feature_input,
+        # birads_output,
+        # density_output,
         batch_size_training
     ),
     epochs = 2,

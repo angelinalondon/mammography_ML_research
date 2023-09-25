@@ -1,9 +1,5 @@
-!pip
-install
-opencv - python
-!pip
-install
-pydicom
+!pip install opencv-python
+!pip install pydicom
 
 import numpy as np
 import pydicom
@@ -14,6 +10,10 @@ import random
 height = 3518  # The height of your images
 width = 2800  # The width of your images
 num_features = 2  # Number of feature columns, here you have 'laterality' and 'view_position'
+
+available_image_ids = []
+preloaded_image_ids = []
+used_image_ids = []
 
 
 def conditional_resize(img, img_id, target_height=height, target_width=width):
@@ -63,13 +63,29 @@ def conditional_resize(img, img_id, target_height=height, target_width=width):
     print("resized IMAGE:", img_id, original_height, original_width, output_img.shape)
     return output_img
 
+def get_data_from_csv(by_image_id, mode, csv_column_name):
+    data = training_data
+    if mode == "validation": data = validation_data
+    elif mode == "test": data = test_data
+
+    # Use boolean indexing to filter the DataFrame
+    filtered_df = data[data['image_id'] == by_image_id]
+
+    # Retrieve the value
+    value = filtered_df[csv_column_name].iloc[0]
+    return value
+
 
 def preload_images(df, num_preloaded):
+    global preloaded_image_ids  # Declare global if you want to update the list outside the function
     print("preload images started")
     preloaded_images = {}
 
-    # Shuffle the DataFrame and select the first num_preloaded rows
-    shuffled_df = df.sample(frac=1).reset_index(drop=True)
+    # Filter the DataFrame to exclude rows with image_id in preloaded_image_ids
+    filtered_df = df[~df['image_id'].isin(preloaded_image_ids)]
+
+    # Shuffle the filtered DataFrame and select the first num_preloaded rows
+    shuffled_df = filtered_df.sample(frac=1).reset_index(drop=True)
     selected_df = shuffled_df.head(num_preloaded)
 
     for idx, row in selected_df.iterrows():
@@ -77,20 +93,21 @@ def preload_images(df, num_preloaded):
         study_id = row['study_id']
         img_path = f"/content/drive/MyDrive/Colab/vindr-mammo-a-large-scale-benchmark-dataset-for-computer-aided-detection-and-diagnosis-in-full-field-digital-mammography-1.0.0/images/{study_id}/{img_id}.dicom"
         preloaded_images[img_id] = pydicom.dcmread(img_path).pixel_array
+        preloaded_image_ids.append(img_id)
         print("preloaded image", img_id)
 
     print("preload images completed")
     return preloaded_images
 
+mapping_dict_density = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
+mapping_dict_laterality = {'left': 0, 'right': 1}
+mapping_dict_view_position = {'CC': 0, 'MLO': 1}
 
 def my_data_generator(df, batch_size, preloaded_images, feature_input, sample_weights_birads, sample_weights_density):
     print('\n =================\n',
           'entered my_data_generator'.upper(),
           '\n====================')
 
-    mapping_dict_density = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
-    mapping_dict_laterality = {'left': 0, 'right': 1}
-    mapping_dict_view_position = {'CC': 0, 'MLO': 1}
     filtered_df = df[df['image_id'].isin(preloaded_images.keys())]
     unused_indices = np.arange(len(filtered_df))
 
@@ -136,23 +153,6 @@ def my_data_generator(df, batch_size, preloaded_images, feature_input, sample_we
             batch_weights_density[i] = sample_weights_density[original_idx]
         #     WAITS changed their type from float32 to float64?
 
-        print('AFTER RESIZING:',
-              "\n Shape of training image_input:", batch_images.shape, " Data type:",
-              str(batch_images.dtype) if hasattr(batch_images, 'dtype') else "N/A",
-              "\n Shape of training features:", batch_features.shape, " Data type:",
-              str(batch_features.dtype) if hasattr(batch_features, 'dtype') else "N/A",
-              "\n Shape of training birads labels:", batch_labels_birads.shape, " Data type:",
-              str(batch_labels_birads.dtype) if hasattr(batch_labels_birads, 'dtype') else "N/A",
-              "\n Shape of training birads weights:", batch_weights_birads.shape, " Data type:",
-              str(batch_weights_birads.dtype) if hasattr(batch_weights_birads, 'dtype') else "N/A",
-              "\n Shape of training density labels:", batch_labels_density.shape, " Data type:",
-              str(batch_labels_density.dtype) if hasattr(batch_labels_density, 'dtype') else "N/A",
-              "\n Shape of training density weights:", batch_weights_density.shape, " Data type:",
-              str(batch_weights_density.dtype) if hasattr(batch_weights_density, 'dtype') else "N/A",
-              "\n batch_labels_birads", type(batch_labels_birads), 'batch_weights_density', type(batch_weights_density),
-              "\n batch_labels_birads.shape", type(batch_labels_birads.shape), 'batch_weights_density.shape',
-              type(batch_weights_density.shape))
-
         return {
             'image_input': batch_images,
             'feature_input': batch_features
@@ -164,6 +164,38 @@ def my_data_generator(df, batch_size, preloaded_images, feature_input, sample_we
             'density_output': batch_weights_density
         }
 
-        del batch_images, batch_labels_birads, batch_labels_density, batch_features, batch_weights_birads, batch_weights_density
-        gc.collect()
-        print('gc.collect done')
+
+def my_data_generator_two(
+        preloaded_images,
+        sample_weights, # from 3rd step: sample_weights_train
+        batch_size,
+        mode # training or validation
+):
+    batch_images = np.zeros((batch_size, height, width), dtype=np.float32)  # Adjust dtype as needed
+    batch_labels_birads = np.zeros((batch_size, 1), dtype=int)  # Assuming birads labels are integers
+    batch_labels_density = np.zeros((batch_size, 1), dtype=int)  # Assuming density labels are integers
+    batch_features = np.zeros((batch_size, num_features), dtype=int)  # Assuming features are integers
+    batch_weights_birads = np.zeros((batch_size,), dtype=np.float32)  # Assuming weights are float numbers
+    batch_weights_density = np.zeros((batch_size,), dtype=np.float32)  # Assuming weights are float numbers
+
+    while True:
+        for i, image_id in enumerate(preloaded_images):
+            batch_images[i] = preloaded_images[image_id]
+            batch_labels_birads[i, 0] = get_data_from_csv(image_id, mode, 'breast_birads') - 1
+            batch_labels_density[i, 0] = mapping_dict_density.get(get_data_from_csv(image_id, mode, 'breast_density') -1)
+            batch_features[i] = [mapping_dict_laterality.get(get_data_from_csv(image_id, mode,'laterality'), -1),
+                                 mapping_dict_view_position.get(get_data_from_csv(image_id, mode,'view_position'), -1)]
+
+            batch_weights_birads[i] = sample_weights['birads_output'][image_id]
+            batch_weights_density[i] = sample_weights['density_output'][image_id]
+
+        return {
+            'image_input': batch_images,
+            'feature_input': batch_features
+        }, {
+            'birads_output': batch_labels_birads,
+            'density_output': batch_labels_density
+        }, {
+            'birads_output': batch_weights_birads,
+            'density_output': batch_weights_density
+        }
