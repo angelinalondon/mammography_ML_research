@@ -1,9 +1,5 @@
-!pip
-install
-opencv - python
-!pip
-install
-pydicom
+!pip install opencv-python
+!pip install pydicom
 
 import numpy as np
 import pydicom
@@ -65,6 +61,7 @@ def conditional_resize(img, img_id, target_height=height, target_width=width):
 
 
 def preload_images(df, num_preloaded):
+    print("Start Df type", df.type)
     print("preload images started")
     preloaded_images = {}
 
@@ -80,10 +77,14 @@ def preload_images(df, num_preloaded):
         print("preloaded image", img_id)
 
     print("preload images completed")
+    print("\n preloaded images keys before data_generator:", preloaded_images.keys())
     return preloaded_images
 
 
-def my_data_generator(df, batch_size, preloaded_images, feature_input, sample_weights_birads, sample_weights_density):
+unused_indices = []
+def my_data_generator(df, batch_size, preloaded_images, feature_input,  batch_labels_birads, batch_labels_density, sample_weights_birads, sample_weights_density):
+    print('\n Start type of preloaded_images:', preloaded_images),
+
     print('\n =================\n',
           'entered my_data_generator'.upper(),
           '\n====================')
@@ -91,14 +92,11 @@ def my_data_generator(df, batch_size, preloaded_images, feature_input, sample_we
     mapping_dict_density = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
     mapping_dict_laterality = {'left': 0, 'right': 1}
     mapping_dict_view_position = {'CC': 0, 'MLO': 1}
+    print('\n End type preloaded_images:', preloaded_images),
     filtered_df = df[df['image_id'].isin(preloaded_images.keys())]
     unused_indices = np.arange(len(filtered_df))
 
     while True:
-        if len(unused_indices) < batch_size:
-            # Reset unused_indices if there are not enough for a batch
-            unused_indices = np.arange(len(filtered_df))
-
         batch_indices = np.random.choice(a=unused_indices, size=batch_size, replace=False)
         batch_df = filtered_df.iloc[batch_indices]
 

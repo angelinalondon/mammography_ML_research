@@ -115,22 +115,26 @@ model.summary()
 
 history = model.fit(
     my_data_generator(
-        training_data,
         image_input,
+        batch_size_training,
+        preloaded_images_train,
         feature_input,
         birads_output,
         density_output,
-        batch_size_training
+        sample_weights_birads_train,
+        sample_weights_density_train
     ),
     epochs = 2,
     verbose = 2,
     validation_data = my_data_generator(
-        validation_data,
         image_input,
+        batch_size_validation,
+        preloaded_images_val,
         feature_input,
         birads_output,
         density_output,
-        batch_size_training
+        sample_weights_birads_val,
+        sample_weights_density_val
     ),
         callbacks=[checkpoint]
 )
