@@ -51,8 +51,8 @@ model.compile(optimizer='adam',
                        'density_output': ['accuracy', tf.keras.metrics.AUC(name='auc_density')]
                        },
               sample_weight_mode={
-                    'birads_output': None,  # https://faroit.com/keras-docs/1.0.0/models/model/
-                    'density_output': None
+                    'birads_weights': None,  # https://faroit.com/keras-docs/1.0.0/models/model/
+                    'density_weights': None
                     }
               )
 
@@ -68,6 +68,7 @@ def get_sample_weights(y):
     max_val = float(max(counter.values()))
     sample_weights = np.array([max_val / counter[i] for i in y_flat])
     return sample_weights
+# returns a NumPy array (numpy.ndarray) containing sample weights.
 
 
 y_train_birads = training_data['breast_birads'].values
@@ -114,29 +115,21 @@ model.summary()
 
 
 history = model.fit(
-    my_data_generator(
-        image_input,
-        batch_size_training,
+    my_data_generator_two(
         preloaded_images_train,
-        feature_input,
-        birads_output,
-        density_output,
-        sample_weights_birads_train,
-        sample_weights_density_train
+        sample_weights_train,
+        batch_size_training,
+        "training"
     ),
     epochs = 2,
     verbose = 2,
-    validation_data = my_data_generator(
-        image_input,
-        batch_size_validation,
+    validation_data = my_data_generator_two(
         preloaded_images_val,
-        feature_input,
-        birads_output,
-        density_output,
-        sample_weights_birads_val,
-        sample_weights_density_val
+        sample_weights_val,
+        batch_size_validation,
+        "validation",
     ),
-        callbacks=[checkpoint]
+    callbacks=[checkpoint]
 )
 
 
