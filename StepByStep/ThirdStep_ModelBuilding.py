@@ -51,8 +51,8 @@ model.compile(optimizer='adam',
                        'density_output': ['accuracy', tf.keras.metrics.AUC(name='auc_density')]
                        },
               sample_weight_mode={
-                    'birads_output': None,  # https://faroit.com/keras-docs/1.0.0/models/model/
-                    'density_output': None
+                    'birads_weights': None,  # https://faroit.com/keras-docs/1.0.0/models/model/
+                    'density_weights': None
                     }
               )
 
@@ -115,25 +115,21 @@ model.summary()
 
 
 history = model.fit(
-    my_data_generator(
-        training_data,
-        # image_input,
-        # feature_input,
-        # birads_output,
-        # density_output,
-        batch_size_training
+    my_data_generator_two(
+        preloaded_images_train,
+        sample_weights_train,
+        batch_size_training,
+        "training"
     ),
     epochs = 2,
     verbose = 2,
-    validation_data = my_data_generator(
-        validation_data,
-        image_input,
-        feature_input,
-        birads_output,
-        density_output,
-        batch_size_training
+    validation_data = my_data_generator_two(
+        preloaded_images_val,
+        sample_weights_val,
+        batch_size_validation,
+        "validation",
     ),
-        callbacks=[checkpoint]
+    callbacks=[checkpoint]
 )
 
 

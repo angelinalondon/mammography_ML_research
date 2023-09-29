@@ -103,7 +103,7 @@ mapping_dict_density = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
 mapping_dict_laterality = {'left': 0, 'right': 1}
 mapping_dict_view_position = {'CC': 0, 'MLO': 1}
 
-def my_data_generator(df, batch_size, preloaded_images, feature_input, sample_weights_birads, sample_weights_density):
+def my_data_generator(df, batch_size, preloaded_images, feature_input):
     print('\n =================\n',
           'entered my_data_generator'.upper(),
           '\n====================')
@@ -180,22 +180,29 @@ def my_data_generator_two(
 
     while True:
         for i, image_id in enumerate(preloaded_images):
-            batch_images[i] = preloaded_images[image_id]
+            resized_preloaded_image = conditional_resize(preloaded_images[image_id],image_id)
+            batch_images[i] = resized_preloaded_image
             batch_labels_birads[i, 0] = get_data_from_csv(image_id, mode, 'breast_birads') - 1
-            batch_labels_density[i, 0] = mapping_dict_density.get(get_data_from_csv(image_id, mode, 'breast_density') -1)
+            batch_labels_density[i, 0] = mapping_dict_density.get(get_data_from_csv(image_id, mode, 'breast_density')) -1
             batch_features[i] = [mapping_dict_laterality.get(get_data_from_csv(image_id, mode,'laterality'), -1),
                                  mapping_dict_view_position.get(get_data_from_csv(image_id, mode,'view_position'), -1)]
 
-            batch_weights_birads[i] = sample_weights['birads_output'][image_id]
-            batch_weights_density[i] = sample_weights['density_output'][image_id]
+        batch_weights_birads = sample_weights['birads_output']
+        batch_weights_density = sample_weights['density_output']
+        # weights = [batch_weights_birads, batch_weights_density]
 
-        return {
+        return ({
             'image_input': batch_images,
             'feature_input': batch_features
         }, {
             'birads_output': batch_labels_birads,
             'density_output': batch_labels_density
-        }, {
-            'birads_output': batch_weights_birads,
-            'density_output': batch_weights_density
         }
+        # , {
+        #     weights
+        # }
+        , {
+            'birads_weights': batch_weights_birads,
+            'density_weights': batch_weights_density
+        }
+        )
