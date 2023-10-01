@@ -10,10 +10,6 @@ from collections import Counter
 
 batch_size_training = 4
 batch_size_validation = 1
-preloaded_images_train = preload_images(training_data, num_preloaded=4)
-preloaded_images_val = preload_images(validation_data, num_preloaded=1)
-
-
 
 num_channels = 1  # Assuming grayscale images
 
@@ -29,12 +25,13 @@ x = MaxPooling2D((2, 2))(x)
 # Flatten and dense layers
 flatten = Flatten()(x)
 
-
 # Define tabular data input layer for two features: 'laterality' and 'view_position'
 feature_input = Input(shape=(2,), name='feature_input')  # Two features
+laterality_input = Input(shape=(1,), name='laterality_input')
+position_input = Input(shape=(1,), name='position_input')
 
 # Concatenate flattened image data and feature data
-merged = Concatenate()([flatten, feature_input])
+merged = Concatenate()([flatten, laterality_input, position_input])
 #
 # new_layer = Dense(12, activation='relu')(merged)  # or any number of units you want
 
@@ -42,7 +39,7 @@ birads_output = Dense(5, activation='softmax', name='birads_output')(merged)
 density_output = Dense(4, activation='softmax', name='density_output')(merged)
 
 # Complete the model
-model = Model(inputs=[image_input, feature_input], outputs=[birads_output, density_output])
+model = Model(inputs=[image_input, laterality_input, position_input], outputs=[birads_output, density_output])
 
 model.compile(optimizer='adam',
               loss={'birads_output': 'sparse_categorical_crossentropy',
@@ -51,9 +48,9 @@ model.compile(optimizer='adam',
                        'density_output': ['accuracy', tf.keras.metrics.AUC(name='auc_density')]
                        },
               sample_weight_mode={
-                    'birads_weights': None,  # https://faroit.com/keras-docs/1.0.0/models/model/
-                    'density_weights': None
-                    }
+                  'birads_output': None,  # https://faroit.com/keras-docs/1.0.0/models/model/
+                  'density_output': None
+              }
               )
 
 checkpoint = ModelCheckpoint(filepath='/content/drive/MyDrive/Colab/Callbacks/First_Attempt_Batches',
@@ -68,71 +65,68 @@ def get_sample_weights(y):
     max_val = float(max(counter.values()))
     sample_weights = np.array([max_val / counter[i] for i in y_flat])
     return sample_weights
+
+
 # returns a NumPy array (numpy.ndarray) containing sample weights.
 
 
-y_train_birads = training_data['breast_birads'].values
-y_train_density = training_data['breast_density'].values
-
-y_val_birads = validation_data['breast_birads'].values
-y_val_density = validation_data['breast_density'].values
+# y_train_birads = preloaded_images_train['breast_birads'].values
+# y_train_density = preloaded_images_train['breast_density'].values
+#
+# y_val_birads = preloaded_images_val['breast_birads'].values
+# y_val_density = preloaded_images_val['breast_density'].values
 
 # Reshape the labels
-y_train_birads = y_train_birads.reshape(-1, 1)  # Reshape to shape (n_samples_train, 1)
-y_train_density = y_train_density.reshape(-1, 1)  # Reshape to shape (n_samples_train, 1)
+# y_train_birads = y_train_birads.reshape(-1, 1)  # Reshape to shape (n_samples_train, 1)
+# y_train_density = y_train_density.reshape(-1, 1)  # Reshape to shape (n_samples_train, 1)
+#
+# y_val_birads = y_val_birads.reshape(-1, 1)  # Reshape to shape (n_samples_val, 1)
+# y_val_density = y_val_density.reshape(-1, 1)  # Reshape to shape (n_samples_val, 1)
 
-y_val_birads = y_val_birads.reshape(-1, 1)  # Reshape to shape (n_samples_val, 1)
-y_val_density = y_val_density.reshape(-1, 1)  # Reshape to shape (n_samples_val, 1)
 
-
-
-sample_weights_birads_train = get_sample_weights(y_train_birads.flatten())
-sample_weights_density_train = get_sample_weights(y_train_density.flatten())
-
-sample_weights_birads_val = get_sample_weights(y_val_birads.flatten())
-sample_weights_density_val = get_sample_weights(y_val_density.flatten())
+# sample_weights_birads_train = get_sample_weights(y_train_birads.flatten())
+# sample_weights_density_train = get_sample_weights(y_train_density.flatten())
+#
+# sample_weights_birads_val = get_sample_weights(y_val_birads.flatten())
+# sample_weights_density_val = get_sample_weights(y_val_density.flatten())
 
 
 # Map the class weights to the individual samples in the dataset
-sample_weights_train = {'birads_output': sample_weights_birads_train,
-                        'density_output': sample_weights_density_train}
+# sample_weights_train = {'birads_output': sample_weights_birads_train,
+#                         'density_output': sample_weights_density_train}
+#
+# sample_weights_val = {'birads_output': sample_weights_birads_val,
+#                       'density_output': sample_weights_density_val}
 
-sample_weights_val = {'birads_output': sample_weights_birads_val,
-                      'density_output': sample_weights_density_val}
-
-print('\n sample_weights_val', sample_weights_val,'\n sample_weights_train', sample_weights_train )
-print('\n _____________ \n',
-      "\n Shape of model output:", model.output_shape, " Data type:", str(model.output.dtype) if hasattr(model.output, 'dtype') else "N/A",
-      "\n Shape of image_input:", image_input.shape, " Data type:", str(image_input.dtype) if hasattr(image_input, 'dtype') else "N/A",
-      "\n Shape of feature_input:", feature_input.shape, " Data type:", str(feature_input.dtype) if hasattr(feature_input, 'dtype') else "N/A",
-      "\n Shape of birads label:", y_train_birads.shape, " Data type:", str(y_train_birads.dtype) if hasattr(y_train_birads, 'dtype') else "N/A",
-      "\n Shape of birads weight:", sample_weights_birads_train.shape, " Data type:", str(sample_weights_birads_train.dtype) if hasattr(sample_weights_birads_train, 'dtype') else "N/A",
-      "\n Shape of density label:", y_train_density.shape, " Data type:", str(y_train_density.dtype) if hasattr(y_train_density, 'dtype') else "N/A",
-      "\n Shape of density weight:", sample_weights_density_train.shape, " Data type:", str(sample_weights_density_train.dtype) if hasattr(sample_weights_density_train, 'dtype') else "N/A",
-      '\n _____________ \n')
+# print('\n sample_weights_val', sample_weights_val,'\n sample_weights_train', sample_weights_train )
+# print('\n _____________ \n',
+#       "\n Shape of model output:", model.output_shape, " Data type:", str(model.output.dtype) if hasattr(model.output, 'dtype') else "N/A",
+#       "\n Shape of image_input:", image_input.shape, " Data type:", str(image_input.dtype) if hasattr(image_input, 'dtype') else "N/A",
+#       "\n Shape of laterality_input:", laterality_input.shape, " Data type:", str(laterality_input.dtype) if hasattr(laterality_input, 'dtype') else "N/A",
+#     "\n Shape of position_input:", position_input.shape, " Data type:", str(position_input.dtype) if hasattr(laterality_input, 'dtype') else "N/A",
+#       "\n Shape of birads label:", y_train_birads.shape, " Data type:", str(y_train_birads.dtype) if hasattr(y_train_birads, 'dtype') else "N/A",
+#       "\n Shape of birads weight:", sample_weights_birads_train.shape, " Data type:", str(sample_weights_birads_train.dtype) if hasattr(sample_weights_birads_train, 'dtype') else "N/A",
+#       "\n Shape of density label:", y_train_density.shape, " Data type:", str(y_train_density.dtype) if hasattr(y_train_density, 'dtype') else "N/A",
+#       "\n Shape of density weight:", sample_weights_density_train.shape, " Data type:", str(sample_weights_density_train.dtype) if hasattr(sample_weights_density_train, 'dtype') else "N/A",
+#       '\n _____________ \n')
 
 model.summary()
 
-
 history = model.fit(
     my_data_generator_two(
-        preloaded_images_train,
-        sample_weights_train,
         batch_size_training,
         "training"
     ),
-    epochs = 2,
-    verbose = 2,
-    validation_data = my_data_generator_two(
-        preloaded_images_val,
-        sample_weights_val,
+    steps_per_epoch=3,  # model pulls these batches before considering an epoch done
+    epochs=2,  # total training epochs
+    verbose=2,
+    validation_data=my_data_generator_two(
         batch_size_validation,
         "validation",
     ),
+    validation_steps=1,  # number of batches to draw from the validation generator for evaluation
     callbacks=[checkpoint]
 )
-
-
 
 print('Model fit is completed')
 
